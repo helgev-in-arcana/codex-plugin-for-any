@@ -1,5 +1,5 @@
 ---
-name: codex-rescue
+name: codex-subagent
 description: Delegate a requested second opinion, focused review, or debugging task to the local OpenAI Codex CLI in the assigned workspace.
 mainAgent: true
 subagent: true
