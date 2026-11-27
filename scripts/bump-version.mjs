@@ -4,8 +4,10 @@ import path from "node:path";
 import process from "node:process";
 
 const VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const SKILL_VERSION_REGEX = /^(\s*version:\s*")([^"]+)("\s*)$/m;
+const MODULE_VERSION_REGEX = /^(export const COMPANION_VERSION = ")([^"]+)(";)$/m;
 
-const TARGETS = [
+const JSON_TARGETS = [
   {
     file: "package.json",
     values: [
@@ -39,7 +41,7 @@ const TARGETS = [
     ]
   },
   {
-    file: "plugins/codex/.claude-plugin/plugin.json",
+    file: "plugin.json",
     values: [
       {
         label: "version",
@@ -49,26 +51,19 @@ const TARGETS = [
         }
       }
     ]
+  }
+];
+
+const TEXT_TARGETS = [
+  {
+    file: "skills/codex/SKILL.md",
+    label: "metadata.version",
+    pattern: SKILL_VERSION_REGEX
   },
   {
-    file: ".claude-plugin/marketplace.json",
-    values: [
-      {
-        label: "metadata.version",
-        get: (json) => json.metadata?.version,
-        set: (json, version) => {
-          requireObject(json.metadata, ".claude-plugin/marketplace.json metadata");
-          json.metadata.version = version;
-        }
-      },
-      {
-        label: "plugins[codex].version",
-        get: (json) => findMarketplacePlugin(json).version,
-        set: (json, version) => {
-          findMarketplacePlugin(json).version = version;
-        }
-      }
-    ]
+    file: "skills/codex/scripts/lib/version.mjs",
+    label: "COMPANION_VERSION",
+    pattern: MODULE_VERSION_REGEX
   }
 ];
 
@@ -81,7 +76,7 @@ function usage() {
     "Options:",
     "  --check       Verify manifest versions. Uses package.json when version is omitted.",
     "  --root <dir>  Run against a different repository root.",
-    "  --help       Print this help."
+    "  --help        Print this help."
   ].join("\n");
 }
 
@@ -121,7 +116,7 @@ function parseArgs(argv) {
 
 function validateVersion(version) {
   if (!VERSION_PATTERN.test(version)) {
-    throw new Error(`Expected a semver-like version such as 1.0.3, got: ${version}`);
+    throw new Error(`Expected a semver-like version such as 2.0.0, got: ${version}`);
   }
 }
 
@@ -129,12 +124,6 @@ function requireObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`Expected ${label} to be an object.`);
   }
-}
-
-function findMarketplacePlugin(json) {
-  const plugin = json.plugins?.find((entry) => entry?.name === "codex");
-  requireObject(plugin, ".claude-plugin/marketplace.json plugins[codex]");
-  return plugin;
 }
 
 function readJson(root, file) {
@@ -159,7 +148,7 @@ function readPackageVersion(root) {
 function checkVersions(root, expectedVersion) {
   const mismatches = [];
 
-  for (const target of TARGETS) {
+  for (const target of JSON_TARGETS) {
     const json = readJson(root, target.file);
     for (const value of target.values) {
       const actual = value.get(json);
@@ -169,13 +158,22 @@ function checkVersions(root, expectedVersion) {
     }
   }
 
+  for (const target of TEXT_TARGETS) {
+    const content = fs.readFileSync(path.join(root, target.file), "utf8");
+    const match = content.match(target.pattern);
+    const actual = match?.[2] ?? null;
+    if (actual !== expectedVersion) {
+      mismatches.push(`${target.file} ${target.label}: expected ${expectedVersion}, found ${actual ?? "<missing>"}`);
+    }
+  }
+
   return mismatches;
 }
 
 function bumpVersion(root, version) {
   const changedFiles = [];
 
-  for (const target of TARGETS) {
+  for (const target of JSON_TARGETS) {
     const json = readJson(root, target.file);
     const before = JSON.stringify(json);
 
@@ -185,6 +183,19 @@ function bumpVersion(root, version) {
 
     if (JSON.stringify(json) !== before) {
       writeJson(root, target.file, json);
+      changedFiles.push(target.file);
+    }
+  }
+
+  for (const target of TEXT_TARGETS) {
+    const filePath = path.join(root, target.file);
+    const before = fs.readFileSync(filePath, "utf8");
+    if (!target.pattern.test(before)) {
+      throw new Error(`Could not locate ${target.label} in ${target.file}.`);
+    }
+    const after = before.replace(target.pattern, `$1${version}$3`);
+    if (after !== before) {
+      fs.writeFileSync(filePath, after, "utf8");
       changedFiles.push(target.file);
     }
   }

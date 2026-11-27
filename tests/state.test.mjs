@@ -5,37 +5,82 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { makeTempDir } from "./helpers.mjs";
-import { resolveJobFile, resolveJobLogFile, resolveStateDir, resolveStateFile, saveState } from "../plugins/codex/scripts/lib/state.mjs";
+import { resolveJobFile, resolveJobLogFile, resolveStateDir, resolveStateFile, saveState } from "../skills/codex/scripts/lib/state.mjs";
 
 test("resolveStateDir uses a temp-backed per-workspace directory", () => {
   const workspace = makeTempDir();
-  const stateDir = resolveStateDir(workspace);
+  const previousStateDir = process.env.CODEX_COMPANION_STATE_DIR;
+  const previousPluginData = process.env.PLUGIN_DATA;
+  delete process.env.CODEX_COMPANION_STATE_DIR;
+  delete process.env.PLUGIN_DATA;
 
-  assert.equal(stateDir.startsWith(os.tmpdir()), true);
-  assert.match(path.basename(stateDir), /.+-[a-f0-9]{16}$/);
-  assert.match(stateDir, new RegExp(`^${os.tmpdir().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  try {
+    const stateDir = resolveStateDir(workspace);
+
+    assert.equal(stateDir.startsWith(os.tmpdir()), true);
+    assert.match(path.basename(stateDir), /.+-[a-f0-9]{16}$/);
+    assert.match(stateDir, new RegExp(`^${os.tmpdir().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  } finally {
+    if (previousStateDir != null) {
+      process.env.CODEX_COMPANION_STATE_DIR = previousStateDir;
+    }
+    if (previousPluginData != null) {
+      process.env.PLUGIN_DATA = previousPluginData;
+    }
+  }
 });
 
-test("resolveStateDir uses CLAUDE_PLUGIN_DATA when it is provided", () => {
+test("resolveStateDir uses PLUGIN_DATA when it is provided", () => {
   const workspace = makeTempDir();
   const pluginDataDir = makeTempDir();
-  const previousPluginDataDir = process.env.CLAUDE_PLUGIN_DATA;
-  process.env.CLAUDE_PLUGIN_DATA = pluginDataDir;
+  const previousStateDir = process.env.CODEX_COMPANION_STATE_DIR;
+  const previousPluginData = process.env.PLUGIN_DATA;
+  delete process.env.CODEX_COMPANION_STATE_DIR;
+  process.env.PLUGIN_DATA = pluginDataDir;
 
   try {
     const stateDir = resolveStateDir(workspace);
 
     assert.equal(stateDir.startsWith(path.join(pluginDataDir, "state")), true);
     assert.match(path.basename(stateDir), /.+-[a-f0-9]{16}$/);
-    assert.match(
-      stateDir,
-      new RegExp(`^${path.join(pluginDataDir, "state").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`)
-    );
   } finally {
-    if (previousPluginDataDir == null) {
-      delete process.env.CLAUDE_PLUGIN_DATA;
+    if (previousStateDir == null) {
+      delete process.env.CODEX_COMPANION_STATE_DIR;
     } else {
-      process.env.CLAUDE_PLUGIN_DATA = previousPluginDataDir;
+      process.env.CODEX_COMPANION_STATE_DIR = previousStateDir;
+    }
+    if (previousPluginData == null) {
+      delete process.env.PLUGIN_DATA;
+    } else {
+      process.env.PLUGIN_DATA = previousPluginData;
+    }
+  }
+});
+
+test("resolveStateDir prefers CODEX_COMPANION_STATE_DIR over PLUGIN_DATA", () => {
+  const workspace = makeTempDir();
+  const explicitStateDir = makeTempDir();
+  const pluginDataDir = makeTempDir();
+  const previousStateDir = process.env.CODEX_COMPANION_STATE_DIR;
+  const previousPluginData = process.env.PLUGIN_DATA;
+  process.env.CODEX_COMPANION_STATE_DIR = explicitStateDir;
+  process.env.PLUGIN_DATA = pluginDataDir;
+
+  try {
+    const stateDir = resolveStateDir(workspace);
+
+    assert.equal(stateDir.startsWith(explicitStateDir), true);
+    assert.match(path.basename(stateDir), /.+-[a-f0-9]{16}$/);
+  } finally {
+    if (previousStateDir == null) {
+      delete process.env.CODEX_COMPANION_STATE_DIR;
+    } else {
+      process.env.CODEX_COMPANION_STATE_DIR = previousStateDir;
+    }
+    if (previousPluginData == null) {
+      delete process.env.PLUGIN_DATA;
+    } else {
+      process.env.PLUGIN_DATA = previousPluginData;
     }
   }
 });
@@ -66,7 +111,7 @@ test("saveState prunes dropped job artifacts when indexed jobs exceed the cap", 
     `${JSON.stringify(
       {
         version: 1,
-        config: { stopReviewGate: false },
+        config: {},
         jobs
       },
       null,
@@ -77,7 +122,7 @@ test("saveState prunes dropped job artifacts when indexed jobs exceed the cap", 
 
   saveState(workspace, {
     version: 1,
-    config: { stopReviewGate: false },
+    config: {},
     jobs
   });
 
