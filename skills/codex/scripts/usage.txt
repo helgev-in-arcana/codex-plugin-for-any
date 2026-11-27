@@ -1,0 +1,17 @@
+Usage: node <skill>/scripts/codex-companion.mjs COMMAND [OPTIONS]
+
+  setup                         Check the local Codex CLI and authentication
+  review                        Review a Git working tree or branch
+  adversarial-review [focus]    Review with a specific focus and structured findings
+  task [prompt]                 Delegate a task (read-only by default)
+  task-resume-candidate         Find the latest resumable task
+  status [job-id]               List jobs or inspect a particular job
+  result [job-id]               Retrieve the final output
+  cancel [job-id]               Stop a background worker and its Codex process
+
+All commands support --cwd <path> and --json.
+Reviews accept --base <ref>, --scope auto|working-tree|branch, --model <name>,
+and --background or --wait (foreground is the default).
+Tasks accept --background or --wait, --resume or --fresh, --write,
+--model <name>, --effort <level>, --prompt-file <path>, and piped stdin.
+Use status <job-id> --wait [--timeout-ms <ms>] to wait for a background job.

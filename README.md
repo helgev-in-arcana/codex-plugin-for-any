@@ -7,6 +7,68 @@ they already have.
 
 <video src="./docs/plugin-demo.webm" controls muted playsinline autoplay></video>
 
+## Universal Agent Skill
+
+For an Agent Skills client, install the standalone Codex skill from this checkout:
+
+```bash
+npx skills add . --skill codex
+```
+
+You can also copy the complete `skills/codex/` directory to the client's skills directory, or use the CLI directly:
+
+```bash
+node skills/codex/scripts/codex-companion.mjs setup --json
+node skills/codex/scripts/codex-companion.mjs review --cwd /path/to/project
+```
+
+Antigravity can load this checkout as a local plugin using the root `plugin.json`. Each Universal job owns its Codex process. Use `--background` to detach a review or task and use its job ID with `status`, `result`, or `cancel`.
+
+### Updating from OpenAI
+
+Run these commands from the fork's repository root. Keep `origin` pointed at the fork. On the first sync, register the OpenAI repository as `upstream`:
+
+```bash
+git remote add upstream https://github.com/openai/codex-plugin-cc.git
+```
+
+**For each update**, start on the branch that contains the Universal Skill (currently `feat/universal-skill-bundle`). Create a sync branch from it, fetch OpenAI's changes, and merge them:
+
+```bash
+git switch -c sync/openai-YYYY-MM-DD
+git fetch upstream
+git log --oneline HEAD..upstream/main
+git merge upstream/main
+```
+
+Use a fresh sync branch name each time. Keep upstream's runtime in `plugins/codex/` and its Claude Code release manifests at their original paths. The fork owns the Universal instructions, references and CLI in `skills/codex/`, the runtime adaptations in `universal/runtime.patch`, and the Universal release version in the root `plugin.json`. The build replaces the entire `skills/codex/runtime/` directory.
+
+**Rebuild and verify** with Node.js, npm, Git and the Codex CLI on your path:
+
+```bash
+npm ci
+node scripts/build-universal-skill.mjs
+node scripts/build-universal-skill.mjs --check
+npm run check-version
+npm test
+npm run build
+git status --short
+```
+
+Review the diff and commit the regenerated runtime alongside any patch or packaging changes. Installers consume the checked-in files. An upstream version-only update can leave the Universal bundle identical.
+
+**If the runtime patch fails to apply**, the build stops before replacing the previous bundle. To refresh the patch, stage a clean copy of the updated upstream scripts in a temporary Git repository:
+
+```bash
+patch_dir=$(mktemp -d)
+cp -R plugins/codex/scripts "$patch_dir/scripts"
+git -C "$patch_dir" init -q
+git -C "$patch_dir" add scripts
+git -C "$patch_dir" apply --reject "$PWD/universal/runtime.patch"
+```
+
+Resolve the rejected hunks in the temporary copy, preserving the Universal entry point, job-start notification, direct Codex transport and isolated job state. Inspect `git -C "$patch_dir" diff -- scripts`. Once it contains the intended changes, save it with `git -C "$patch_dir" diff -- scripts > universal/runtime.patch` and repeat the rebuild and verification above.
+
 ## What You Get
 
 - `/codex:review` for a normal read-only Codex review
