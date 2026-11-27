@@ -26,15 +26,48 @@ Antigravity can load this checkout as a local plugin using the root `plugin.json
 
 ### Updating from OpenAI
 
-The source runtime and the Claude Code release manifests retain their upstream paths. The Universal instructions and CLI live in `skills/codex/SKILL.md` and `skills/codex/scripts/`. The patch in `universal/runtime.patch` exposes the companion entry point and job-start notification, selects direct transport, and isolates job state. After merging upstream, rebuild and verify the checked-in distribution:
+Run these commands from the fork's repository root. Keep `origin` pointed at the fork. On the first sync, register the OpenAI repository as `upstream`:
 
 ```bash
-node scripts/build-universal-skill.mjs
-node scripts/build-universal-skill.mjs --check
-npm test
+git remote add upstream https://github.com/openai/codex-plugin-cc.git
 ```
 
-The build copies the runtime, review assets, license and notice from `plugins/codex/` into a staging directory and applies the Universal patch there. An incompatible upstream change stops the build before it updates `skills/codex/runtime/`. Commit the rebuilt directory so skill installers can use it directly. The root `plugin.json` owns the Universal release version.
+**For each update**, start on the branch that contains the Universal Skill (currently `feat/universal-skill-bundle`). Create a sync branch from it, fetch OpenAI's changes, and merge them:
+
+```bash
+git switch -c sync/openai-YYYY-MM-DD
+git fetch upstream
+git log --oneline HEAD..upstream/main
+git merge upstream/main
+```
+
+Use a fresh sync branch name each time. Keep upstream's runtime in `plugins/codex/` and its Claude Code release manifests at their original paths. The fork owns the Universal instructions, references and CLI in `skills/codex/`, the runtime adaptations in `universal/runtime.patch`, and the Universal release version in the root `plugin.json`. The build replaces the entire `skills/codex/runtime/` directory.
+
+**Rebuild and verify** with Node.js, npm, Git and the Codex CLI on your path:
+
+```bash
+npm ci
+node scripts/build-universal-skill.mjs
+node scripts/build-universal-skill.mjs --check
+npm run check-version
+npm test
+npm run build
+git status --short
+```
+
+Review the diff and commit the regenerated runtime alongside any patch or packaging changes. Installers consume the checked-in files. An upstream version-only update can leave the Universal bundle identical.
+
+**If the runtime patch fails to apply**, the build stops before replacing the previous bundle. To refresh the patch, stage a clean copy of the updated upstream scripts in a temporary Git repository:
+
+```bash
+patch_dir=$(mktemp -d)
+cp -R plugins/codex/scripts "$patch_dir/scripts"
+git -C "$patch_dir" init -q
+git -C "$patch_dir" add scripts
+git -C "$patch_dir" apply --reject "$PWD/universal/runtime.patch"
+```
+
+Resolve the rejected hunks in the temporary copy, preserving the Universal entry point, job-start notification, direct Codex transport and isolated job state. Inspect `git -C "$patch_dir" diff -- scripts`. Once it contains the intended changes, save it with `git -C "$patch_dir" diff -- scripts > universal/runtime.patch` and repeat the rebuild and verification above.
 
 ## What You Get
 
