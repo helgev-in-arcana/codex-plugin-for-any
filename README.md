@@ -22,7 +22,22 @@ node skills/codex/scripts/codex-companion.mjs setup --json
 node skills/codex/scripts/codex-companion.mjs review --cwd /path/to/project
 ```
 
-Antigravity can load this checkout as a local plugin using the root `plugin.json`. Each Universal job owns its Codex process. Use `--background` to detach a review or task and use its job ID with `status`, `result`, or `cancel`.
+Each Universal job owns its Codex process. Use `--background` to detach a review or task and use its job ID with `status`, `result`, or `cancel`.
+
+### Antigravity agents and Swarm
+
+From the checkout, validate and install the plugin, then inspect the discovered components:
+
+```bash
+agy plugin validate .
+agy plugin install .
+agy plugin list --json
+agy agents
+```
+
+Look for the `codex` skill, the `codex-rescue` agent and the `codex-swarm` rule. Start a dedicated session with `agy --agent codex-rescue`, or ask the current agent to delegate a task to it. In a swarm, assign Codex explicitly, for example: `/swarm Review this branch. Have the verifier use the codex skill for a second opinion and report the findings.` The conditional rule guides workers assigned Codex work. The same skill also works directly in the main conversation. [Plugins](https://antigravity.google/docs/build-plugins/) · [Custom subagents](https://antigravity.google/docs/subagents/) · [Swarm](https://antigravity.google/docs/swarm/)
+
+Workers sharing a checkout should each use a separate state directory and session ID as described in the [skill](skills/codex/SKILL.md#parallel-workers). Run `setup --json` in the worker’s actual permission context. If access to Codex configuration or the provider network is blocked, use Antigravity’s normal approval flow for the required access. Subagents inherit the parent’s permission settings. [Terminal sandbox](https://antigravity.google/docs/sandbox/)
 
 ### Updating from OpenAI
 

@@ -24,7 +24,21 @@ Run `node "$companion" setup --json` to check availability and authentication. I
 
 Use `node "$companion" task "prompt"` for read-only work. Add `--write` when the user requests edits. Use `--prompt-file <path>` or stdin for multiline prompts. See [prompting guidance](references/prompting.md) and [prompt recipes](references/prompt-recipes.md) when shaping a complex task.
 
-Use `task-resume-candidate --json` to find an earlier thread before a follow-up. Use `task --resume "prompt"` for a continuation or `task --fresh "prompt"` for independent work. When several agents use the same repository, set `CODEX_COMPANION_SESSION_ID` to a stable identifier for the current host session on every invocation to scope implicit job lookup.
+Use `task-resume-candidate --json` to find an earlier thread before a follow-up. Use `task --resume "prompt"` for a continuation or `task --fresh "prompt"` for independent work.
+
+## Parallel workers
+
+Pass the worker’s assigned working copy as `--cwd` on every call. Give each worker invocation a unique `CODEX_COMPANION_SESSION_ID` and its own absolute `CODEX_COMPANION_STATE_DIR` in a writable temporary or data directory outside the reviewed tree. The session ID scopes implicit lookup. The separate directory also isolates writes to the workspace job index when several workers share a checkout.
+
+For example, initialize one worker in a POSIX shell:
+
+```sh
+export CODEX_COMPANION_STATE_DIR="$(mktemp -d)"
+export CODEX_COMPANION_SESSION_ID="$(basename "$CODEX_COMPANION_STATE_DIR")"
+node "$companion" review --cwd "$worker_dir" --background --json
+```
+
+Keep the absolute state path, session ID, working copy and returned job ID together. Reuse those values in each new shell, including for `task --resume`, `status`, `result`, and `cancel`. Create the temporary directory only once per worker. A role name like `verifier` can recur in different swarms.
 
 ## Background jobs
 
