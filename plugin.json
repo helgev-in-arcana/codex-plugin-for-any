@@ -1,0 +1,25 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "codex",
+  "displayName": "Codex Companion",
+  "version": "2.0.0",
+  "description": "Delegate code reviews, adversarial design challenges, and deep coding tasks to your local OpenAI Codex CLI from any agent.",
+  "suggestedPrompts": [
+    "Check whether my local Codex CLI is installed and authenticated",
+    "Run a read-only Codex code review on my current git changes",
+    "Run an adversarial Codex review challenging the design of this branch"
+  ],
+  "author": {
+    "name": "helgev-in-arcana",
+    "url": "https://github.com/helgev-in-arcana"
+  },
+  "repository": "https://github.com/helgev-in-arcana/codex-plugin-for-any",
+  "license": "Apache-2.0",
+  "keywords": [
+    "codex",
+    "openai",
+    "code-review",
+    "adversarial-review",
+    "agent-skills"
+  ]
+}

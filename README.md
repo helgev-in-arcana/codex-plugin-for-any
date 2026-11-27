@@ -7,6 +7,35 @@ they already have.
 
 <video src="./docs/plugin-demo.webm" controls muted playsinline autoplay></video>
 
+## Universal Agent Skill
+
+For an Agent Skills client, install the standalone Codex skill from this checkout:
+
+```bash
+npx skills add . --skill codex
+```
+
+You can also copy the complete `skills/codex/` directory to the client's skills directory, or use the CLI directly:
+
+```bash
+node skills/codex/scripts/codex-companion.mjs setup --json
+node skills/codex/scripts/codex-companion.mjs review --cwd /path/to/project
+```
+
+Antigravity can load this checkout as a local plugin using the root `plugin.json`. Each Universal job owns its Codex process. Use `--background` to detach a review or task and use its job ID with `status`, `result`, or `cancel`.
+
+### Updating from OpenAI
+
+The source runtime and the Claude Code release manifests retain their upstream paths. The Universal instructions and CLI live in `skills/codex/SKILL.md` and `skills/codex/scripts/`. The patch in `universal/runtime.patch` exposes the companion entry point and job-start notification, selects direct transport, and isolates job state. After merging upstream, rebuild and verify the checked-in distribution:
+
+```bash
+node scripts/build-universal-skill.mjs
+node scripts/build-universal-skill.mjs --check
+npm test
+```
+
+The build copies the runtime, review assets, license and notice from `plugins/codex/` into a staging directory and applies the Universal patch there. An incompatible upstream change stops the build before it updates `skills/codex/runtime/`. Commit the rebuilt directory so skill installers can use it directly. The root `plugin.json` owns the Universal release version.
+
 ## What You Get
 
 - `/codex:review` for a normal read-only Codex review
